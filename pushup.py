@@ -45,8 +45,10 @@ def replace_names(df):
     Inputs:
     - df : pandas dataframe with real names
     """
-    replace_dict = {'CYHSM': 'Gandalf', 'Simon Malik': 'Boromir',
-                    'Robert Skotschi': 'Legolas', 'Jannis Plöger': 'Aragorn'}
+    # replace_dict = {'CYHSM': 'Gandalf', 'Simon Malik': 'Boromir',
+    #                 'Robert Skotschi': 'Legolas', 'Jannis Plöger': 'Aragorn'}
+    replace_dict = {'CYHSM': 'Markus', 'Simon Malik': 'Simon',
+                    'Robert Skotschi': 'Robert', 'Jannis Plöger': 'Jannis'}
     return df.rename(columns=replace_dict)
 
 
@@ -76,6 +78,12 @@ def analyse_chatlog(filepath):
     parsed_df = wap.parse_chat_log(filepath)
     df, df_sum, df_cumsum, df_weekly = count_over_days(parsed_df)
     df_leaderboard = create_leaderboard(df_weekly)
+    # Plots
+    plot_leaderboard(df_leaderboard)
+    plot_cumulative_all(df)
+    plot_current_week(df_cumsum)
+    plot_distribution(df)
+    plot_stats(df_sum)
 
     return df, df_sum, df_cumsum, df_weekly, df_leaderboard
 
@@ -129,11 +137,7 @@ def plot_cumulative_all(df):
                        showlegend=False,
                        height=300,
                        margin=go.Margin(
-                           l=50,
-                           r=50,
-                           b=100,
-                           t=20,
-                           pad=4
+                           l=50,r=50,b=100,t=20,pad=4
                        ))
     fig = go.Figure(data=data, layout=layout)
     plot_offline(fig, './docs/plots/total_pushups.html')
@@ -142,7 +146,10 @@ def plot_cumulative_all(df):
 def plot_distribution(df):
     data = [go.Histogram(x=df['Pushups'], nbinsx=10, opacity=0.75)]
     layout = go.Layout(title='Distribution of Pushups per Set',
-                       xaxis=dict(showgrid=True), bargap=0.25)
+                       xaxis=dict(showgrid=True), bargap=0.25,
+                       margin=go.Margin(
+                           l=20,r=20,b=40,t=60,pad=4
+                       ))
     fig = go.Figure(data=data, layout=layout)
     plot_offline(fig, './docs/plots/current_distribution.html')
 
