@@ -124,10 +124,17 @@ def plot_cumulative_all(df):
         'y': df_cumsum[col],
         'name': col
     } for col in df_cumsum.columns]
-    layout = go.Layout(title='Total Cumulative Sum',
+    layout = go.Layout(
                        xaxis=dict(title='Date'), yaxis=dict(title='Pushup Count'),
                        showlegend=False,
-                       height=350)
+                       height=300,
+                       margin=go.Margin(
+                           l=50,
+                           r=50,
+                           b=100,
+                           t=20,
+                           pad=4
+                       ))
     fig = go.Figure(data=data, layout=layout)
     plot_offline(fig, './docs/plots/total_pushups.html')
 
