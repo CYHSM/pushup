@@ -28,8 +28,8 @@ def parse_chat_log(filepath):
                 '-----------------------------------------------------------------------')
             continue
         parsed_df.append(
-            {'Datetime': time, 'Sender': sender, 'Message': message})
-    return pd.DataFrame(parsed_df)
+            {'Datetime': time, 'Name': sender, 'Message': message})
+    return pd.DataFrame(parsed_df).set_index('Datetime')
 
 
 def parse_line(line):
