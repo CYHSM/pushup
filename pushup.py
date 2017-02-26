@@ -13,16 +13,11 @@ def count_over_days(df):
     Counts occurences of #N for each sender per day
 
     Inputs:
-    - df: pandas dataframe with date - sender - message
+    - df: Hashtag extracted dataframe
 
     Returns:
     - Pandas dataframe with columns as sender names and rows as Dates
     """
-    df.is_copy = False  # Get rid of chain warning.
-    df.rename(columns={'Message': 'Pushups'}, inplace=True)
-    # Replace # and convert to number
-    df['Pushups'] = pd.to_numeric(df['Pushups'].str.extract('#(\d*)'))
-    df.dropna(inplace=True)
     # Groupby days
     df_sum = df.groupby([pd.TimeGrouper(freq='d'), 'Name']
                         ).aggregate(np.sum).unstack()
@@ -35,7 +30,49 @@ def count_over_days(df):
     # Group by week to decide winner of week
     df_weekly = df_sum.groupby(pd.TimeGrouper(freq='w')).aggregate(np.sum)
 
-    return df, df_sum, df_cumsum, df_weekly
+    return df_sum, df_cumsum, df_weekly
+
+
+def extract_hashtags(df, column_names=['Name', 'Pushups']):
+    """
+    Extracts hashtags from dataframe
+
+    Inputs:
+    - df: pandas dataframe with date - sender - message
+
+    Returns:
+    - Pandas dataframe with extracted rows
+    """
+    df.is_copy = False  # Get rid of chain warning.
+    df_name_value = extract_name_value_pairs(df, column_names)
+    df.rename(columns={'Message': column_names[1]}, inplace=True)
+    # Replace # and convert to number
+    df[column_names[1]] = pd.to_numeric(
+        df[column_names[1]].str.extract('#(\d*)'))
+    df.dropna(inplace=True)
+
+    # Concatenate
+    df = pd.concat([df, df_name_value]).sort_index()
+
+    return df
+
+
+def extract_name_value_pairs(df, column_names):
+    """
+    Extracts name-value pairs as for example '#Manu#190'
+
+    Inputs:
+    - df: pandas dataframe with date - sender - message
+
+    Returns:
+    - Pandas dataframe with Name and named column
+    """
+    df = df['Message'].str.extract('#(\w*)#(\d*)', expand=True)
+    df.dropna(inplace=True)
+    df.columns = column_names
+    df[column_names[1]] = pd.to_numeric(df[column_names[1]])
+
+    return df
 
 
 def replace_names(df):
@@ -48,7 +85,7 @@ def replace_names(df):
     # replace_dict = {'CYHSM': 'Gandalf', 'Simon Malik': 'Boromir',
     #                 'Robert Skotschi': 'Legolas', 'Jannis Plöger': 'Aragorn'}
     replace_dict = {'CYHSM': 'Markus', 'Simon Malik': 'Simon',
-                    'Robert Skotschi': 'Robert', 'Jannis Plöger': 'Jannis'}
+                    'Robert Skotschi': 'Robert', 'Jannis Plöger': 'Jannis', 'Manu': 'Manuel'}
     return df.rename(columns=replace_dict)
 
 
@@ -75,17 +112,18 @@ def analyse_chatlog(filepath):
     Inputs:
     - filepath : Path to chatlog
     """
-    parsed_df = wap.parse_chat_log(filepath)
-    df, df_sum, df_cumsum, df_weekly = count_over_days(parsed_df)
+    df_parsed = wap.parse_chat_log(filepath)
+    df_extracted = extract_hashtags(df_parsed)
+    df_sum, df_cumsum, df_weekly = count_over_days(df_extracted)
     df_leaderboard = create_leaderboard(df_weekly)
     # Plots
     plot_leaderboard(df_leaderboard)
-    plot_cumulative_all(df)
-    plot_current_week(df_cumsum)
-    plot_distribution(df)
+    plot_cumulative_all(df_extracted)
+    plot_current_week_and_total(df_cumsum)
+    plot_distribution(df_extracted)
     plot_stats(df_sum)
 
-    return df, df_sum, df_cumsum, df_weekly, df_leaderboard
+    return df_extracted, df_sum, df_cumsum, df_weekly, df_leaderboard
 
 
 # -----------------------------------------------------------------------------
@@ -113,32 +151,51 @@ def plot_stats(df_sum):
     plot_offline(table, './docs/plots/current_stats.html')
 
 
-def plot_current_week(df_cumsum):
+def plot_current_week_and_total(df_cumsum):
+    # Current week
+    df_thisweek = df_cumsum[
+        df_cumsum.index.week == np.max(df_cumsum.index.week)]
+    # Set start to zero
+    df_thisweek = df_thisweek - \
+        df_cumsum[df_cumsum.index.week == np.max(
+            df_cumsum.index.week) - 1].iloc[-1]
     data = [{
-        'x': df_cumsum.index,
-        'y': df_cumsum[col],
+        'x': df_thisweek.index,
+        'y': df_thisweek[col],
         'name': col
-    } for col in df_cumsum.columns]
-    layout = go.Layout(title='Cumulative Sum per Person',
-                       xaxis=dict(title='Date'), yaxis=dict(title='Pushup Count'))
+    } for col in df_thisweek.columns]
+    layout = go.Layout(title='Cumulative Sum (Current)',
+                       xaxis=dict(title='Date'), yaxis=dict(title='Pushup Count'),
+                       showlegend=False)
     fig = go.Figure(data=data, layout=layout)
     plot_offline(fig, './docs/plots/current_week.html')
 
-
-def plot_cumulative_all(df):
-    df_cumsum = df.cumsum()
-    data = [{
+    # Total
+    data_total = [{
         'x': df_cumsum.index,
         'y': df_cumsum[col],
         'name': col
     } for col in df_cumsum.columns]
+    layout = go.Layout(title='Cumulative Sum (Total)',
+                       xaxis=dict(title='Date'), yaxis=dict(title='Pushup Count'))
+    fig = go.Figure(data=data_total, layout=layout)
+    plot_offline(fig, './docs/plots/total.html')
+
+
+def plot_cumulative_all(df):
+    df_cumsum = df['Pushups'].cumsum()
+    data = [{
+        'x': df_cumsum.index,
+        'y': df_cumsum.values,
+        'name': 'Pushups'
+    }]
     layout = go.Layout(
-                       xaxis=dict(title='Date'), yaxis=dict(title='Pushup Count'),
-                       showlegend=False,
-                       height=300,
-                       margin=go.Margin(
-                           l=50,r=50,b=100,t=20,pad=4
-                       ))
+        xaxis=dict(title='Date'), yaxis=dict(title='Pushup Count'),
+        showlegend=False,
+        height=300,
+        margin=go.Margin(
+            l=50, r=50, b=100, t=20, pad=4
+        ))
     fig = go.Figure(data=data, layout=layout)
     plot_offline(fig, './docs/plots/total_pushups.html')
 
@@ -148,7 +205,7 @@ def plot_distribution(df):
     layout = go.Layout(title='Distribution of Pushups per Set',
                        xaxis=dict(showgrid=True), bargap=0.25,
                        margin=go.Margin(
-                           l=20,r=20,b=40,t=60,pad=4
+                           l=20, r=20, b=40, t=60, pad=4
                        ))
     fig = go.Figure(data=data, layout=layout)
     plot_offline(fig, './docs/plots/current_distribution.html')
