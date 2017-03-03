@@ -85,7 +85,8 @@ def replace_names(df):
     # replace_dict = {'CYHSM': 'Gandalf', 'Simon Malik': 'Boromir',
     #                 'Robert Skotschi': 'Legolas', 'Jannis Plöger': 'Aragorn'}
     replace_dict = {'CYHSM': 'Markus', 'Simon Malik': 'Simon',
-                    'Robert Skotschi': 'Robert', 'Jannis Plöger': 'Jannis', 'Manu': 'Manuel'}
+                    'Robert Skotschi': 'Robert', 'Jannis Plöger': 'Jannis', 'Manu': 'Manuel', 'Jochen Lanzinger': 'Jochen', 'Jan Rudolph': 'Jan',
+                    'Florian Jochen': 'Florian'}
     return df.rename(columns=replace_dict)
 
 
@@ -101,6 +102,7 @@ def create_leaderboard(df_weekly, winning_point=1):
     df_leaderboard = pd.DataFrame(points, index=df_weekly.columns, columns=[
                                   'Points']).fillna(value=0)
     df_leaderboard['Points'] = df_leaderboard['Points'].astype(int)
+    df_leaderboard.sort_values(['Points'], inplace=True, ascending=False)
 
     return df_leaderboard
 
